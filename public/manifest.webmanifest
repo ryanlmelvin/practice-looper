@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "Loopnook",
-  "short_name": "Loopnook",
+  "name": "Riffbolt",
+  "short_name": "Riffbolt",
   "description": "Repeat a YouTube passage while you practice.",
   "start_url": "./",
   "scope": "./",

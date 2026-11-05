@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
-  <title>Loopnook</title>
-  <rect width="256" height="256" rx="52" fill="#17191b"/>
-  <path d="M168 50H110C73 50 50 73 50 110V150C50 187 73 210 110 210H150C187 210 210 187 210 150V134C210 111 191 92 168 92H142C119 92 102 109 102 132V138C102 154 114 166 130 166H150" fill="none" stroke="#d4f477" stroke-width="23" stroke-linecap="round" stroke-linejoin="round"/>
+  <title>Riffbolt</title>
+  <rect width="256" height="256" rx="52" fill="#ff5934"/>
+  <path transform="translate(62 48) scale(.3)" fill="#111315" fill-rule="evenodd" d="M48 8H376L434 78L403 170L272 252L370 292L47 524L217 308L139 314L205 227L113 237L69 377L1 395L102 76ZM191 81L168 169L314 142L337 81Z"/>
 </svg>

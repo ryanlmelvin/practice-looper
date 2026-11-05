@@ -74,7 +74,7 @@ export function setupPWA({ beforeUpdate, onStatus = () => {} }) {
       button.hidden = !available && !updating;
       button.disabled = updating;
       button.textContent = updating ? 'Updating…' : newerController ? 'Reload update' : 'Update now';
-      button.setAttribute('aria-label', updating ? 'Updating Loopnook' : 'Update available. Update now');
+      button.setAttribute('aria-label', updating ? 'Updating Riffbolt' : 'Update available. Update now');
     }
   }
 

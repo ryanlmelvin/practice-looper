@@ -4,19 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#151918">
-  <title>Update Loopnook</title>
+  <title>Update Riffbolt</title>
   <style>
     :root{font-family:system-ui,sans-serif;color:#eef2ee;background:#151918;color-scheme:dark}
     *{box-sizing:border-box}body{margin:0;padding:calc(env(safe-area-inset-top,0px) + 24px) max(20px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 24px) max(20px,env(safe-area-inset-left,0px))}
-    main{max-width:32rem;margin:auto}h1{font-size:1.35rem}p{line-height:1.6}button,a{font:inherit}button{padding:.75rem 1rem;border:0;border-radius:.5rem;background:#b6e3a9;color:#162015;min-height:44px;cursor:pointer}button:disabled{opacity:.6;cursor:wait}a{color:#c9e6bf;display:inline-block;padding:.75rem 0}button:focus-visible,a:focus-visible{outline:3px solid #fff;outline-offset:4px}[hidden]{display:none!important}.actions{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+    main{max-width:32rem;margin:auto}h1{font-size:1.35rem}p{line-height:1.6}button,a{font:inherit}button{padding:.75rem 1rem;border:0;border-radius:.5rem;background:#ff6846;color:#111315;min-height:44px;cursor:pointer}button:disabled{opacity:.6;cursor:wait}a{color:#ff896e;display:inline-block;padding:.75rem 0}button:focus-visible,a:focus-visible{outline:3px solid #fff;outline-offset:4px}[hidden]{display:none!important}.actions{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
   </style>
 </head>
 <body>
 <main>
-  <h1>Update Loopnook</h1>
+  <h1>Update Riffbolt</h1>
   <p>This checks for a fresh app version and keeps your saved practice setup. Pause playback in other open windows first.</p>
   <p id="status" role="status" aria-live="polite"></p>
-  <div class="actions"><button id="update" type="button">Check and update</button><a href="./">Back to Loopnook</a></div>
+  <div class="actions"><button id="update" type="button">Check and update</button><a href="./">Back to Riffbolt</a></div>
 </main>
 <script>
 (() => {
@@ -86,7 +86,7 @@
         busy = false;
         button.disabled = false;
         button.textContent = 'Check again';
-        status.textContent = 'The latest app is ready. Return to Loopnook to open it.';
+        status.textContent = 'The latest app is ready. Return to Riffbolt to open it.';
       }
     } catch {
       fail('Could not reach the update. Check your connection and try again. Your saved setup has not been deleted.');

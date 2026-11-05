@@ -33,4 +33,4 @@ await writeFile('docs/.nojekyll','');
 const precache = (await filesAt('docs')).filter(file => !file.endsWith('/update.html') && !file.endsWith('/.nojekyll')).map(file => file.replace('docs/','./'));
 const worker = (await readFile('scripts/sw-template.js','utf8')).replaceAll('__RELEASE__',version).replace('__PRECACHE__',JSON.stringify(precache));
 await writeFile('docs/sw.js',worker);
-console.log(`Built Loopnook ${version} (${precache.length} offline assets)`);
+console.log(`Built Riffbolt ${version} (${precache.length} offline assets)`);
