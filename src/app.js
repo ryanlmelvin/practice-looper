@@ -1,0 +1,413 @@
+import { createYouTubePlayer, parseYouTubeURL } from './youtube.js';
+import { LoopController, validateRange } from './loop-controller.js';
+import { createSettingsStore, parseTime, formatTime, validateSnapshot, restoreForDuration } from './state.js';
+import { setupPWA } from './pwa.js';
+
+const $ = id => document.getElementById(id);
+const scopePath = new URL('.', location.href).pathname;
+const consentKey = `practice-looper:${scopePath}:youtube-consent`;
+const settingsKey = `practice-looper:${scopePath}:settings:v1`;
+let store;
+let sessionStore;
+let saved = null;
+let player = null;
+let loop = null;
+let videoId = null;
+let generation = 0;
+let duration = 0;
+let initialized = false;
+let requestedRate = 1;
+let statusTimer;
+let rateTimer;
+let saveTimer;
+let lastSavedPosition = 0;
+let scrubbing = false;
+let storageErrorShown = false;
+let pendingRestore = null;
+let forgotten = false;
+let pendingRate = null;
+let initialDuration = 0;
+let changingDuration = false;
+
+function status(message = '', isError = false, transient = false) {
+  clearTimeout(statusTimer);
+  $('status').textContent = message;
+  $('status').hidden = !message;
+  $('status').classList.toggle('error', isError);
+  if (transient) statusTimer = setTimeout(() => status(), 5000);
+}
+
+try {
+  store = createSettingsStore(localStorage, scopePath);
+  sessionStore = createSettingsStore(sessionStorage, scopePath);
+  saved = sessionStore.read() || store.read();
+  if (localStorage.getItem(consentKey) === 'yes') acceptConsent(false);
+} catch {
+  status('Saved settings could not be read. You can still practice; export settings to keep a copy.', true);
+}
+if (saved) $('video-url').value = `https://www.youtube.com/watch?v=${saved.videoId}`;
+
+function acceptConsent(persist = true) {
+  $('consent-checkbox').checked = true;
+  $('consent-checkbox').required = false;
+  $('youtube-consent').hidden = true;
+  if (persist) {
+    try { localStorage.setItem(consentKey, 'yes'); } catch { /* Consent remains valid for this session. */ }
+  }
+}
+
+function snapshot() {
+  if (!player || !initialized) return saved;
+  if (!validateRange(parseTime($('point-a').value), parseTime($('point-b').value), duration) || !validateRange(loop.a, loop.b, duration)) return null;
+  return { schema:1, source:'youtube', videoId, a:loop.a, b:loop.b, position:player.getCurrentTime(), rate:player.getRate(), repeat:loop.enabled };
+}
+
+function persist() {
+  if (forgotten) return true;
+  const value = snapshot();
+  if (!value) return true;
+  saved = value;
+  try {
+    if (!store) store = createSettingsStore(localStorage, scopePath);
+    if (!sessionStore) sessionStore = createSettingsStore(sessionStorage, scopePath);
+    // Keep this window's update/reload snapshot independent. Only the focused
+    // window owns the shared setup used when a new window is opened.
+    sessionStore.write(value);
+    if (document.hasFocus()) store.write(value);
+    storageErrorShown = false;
+    return true;
+  } catch {
+    if (!storageErrorShown) status('Settings could not be saved. Keep this window open or export settings from the ••• menu.', true);
+    storageErrorShown = true;
+    return false;
+  }
+}
+
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(persist, 200);
+}
+
+function renderRepeat() {
+  $('repeat-button').setAttribute('aria-pressed', String(Boolean(loop?.enabled)));
+}
+
+function renderRates(rates = player?.getRates() || [1]) {
+  const accepted = player?.getRate() || 1;
+  $('speed').replaceChildren(...rates.map(rate => {
+    const option = document.createElement('option');
+    option.value = rate;
+    option.textContent = `${rate}×`;
+    return option;
+  }));
+  $('speed').value = String(accepted);
+  $('speed').disabled = rates.length <= 1;
+}
+
+function requestRate(rate, notify = false) {
+  requestedRate = rate;
+  clearTimeout(rateTimer);
+  if (!player?.setRate(rate)) {
+    if (notify) status('That speed is not available for this video.', true);
+    renderRates();
+    return;
+  }
+  rateTimer = setTimeout(() => {
+    if (notify && player && player.getRate() !== requestedRate) status(`YouTube kept the speed at ${player.getRate()}×. Try another available speed.`, true);
+    renderRates();
+    scheduleSave();
+  }, 1500);
+}
+
+function restoreRate() {
+  if (!player || pendingRate === null) return;
+  if (player.getRates().includes(pendingRate)) {
+    const rate = pendingRate;
+    pendingRate = null;
+    requestRate(rate);
+  } else if (player.getState() === 'playing') {
+    pendingRate = null;
+    status(`The saved speed is unavailable for this video. Using ${player.getRate()}×.`, false, true);
+  }
+}
+
+function renderPoints() {
+  $('point-a').value = formatTime(loop.a, true);
+  $('point-b').value = formatTime(loop.b, true);
+}
+
+function setPoints(a, b, {format = true} = {}) {
+  const valid = validateRange(a, b, duration);
+  $('range-error').hidden = valid;
+  $('range-error').textContent = valid ? '' : `Choose A before B, at least 0.5 seconds apart, within ${formatTime(duration, true)}.`;
+  $('point-a').setAttribute('aria-invalid', String(!valid));
+  $('point-b').setAttribute('aria-invalid', String(!valid));
+  loop.setRange(a, b);
+  renderRepeat();
+  if (valid) {
+    if (format) renderPoints();
+    scheduleSave();
+  }
+  return valid;
+}
+
+function initializeDuration() {
+  if (!player) return;
+  const nextDuration = player.getDuration();
+  if (!Number.isFinite(nextDuration) || nextDuration <= 0) return;
+  if (initialized && nextDuration > initialDuration + 1 && !changingDuration) {
+    changingDuration = true;
+    loop.setEnabled(false);
+    $('repeat-button').disabled = true;
+    status('This video’s duration is changing. Use a recorded video for fixed A–B repeat points.', true);
+  }
+  duration = nextDuration;
+  $('seek').max = duration;
+  $('duration').textContent = formatTime(duration);
+  if (initialized) return;
+  initialized = true;
+  initialDuration = duration;
+  const restored = pendingRestore && restoreForDuration(pendingRestore, duration);
+  if (restored) {
+    setPoints(restored.a, restored.b);
+    loop.setEnabled(restored.repeat);
+    renderRepeat();
+    pendingRate = restored.rate;
+    if (pendingRestore.position > duration) player.load(videoId, restored.position);
+    restoreRate();
+  } else {
+    setPoints(0, Math.min(5, duration));
+    if (pendingRestore) {
+      player.load(videoId, 0);
+      status('The saved passage does not fit this video. Set new A and B points.', true);
+    }
+  }
+  pendingRestore = null;
+  $('repeat-button').disabled = duration < 0.5;
+}
+
+async function loadVideo(id, restore = null) {
+  const token = ++generation;
+  clearTimeout(rateTimer);
+  clearTimeout(saveTimer);
+  player?.pause();
+  loop?.destroy();
+  player?.destroy();
+  player = null;
+  loop = null;
+  initialized = false;
+  forgotten = false;
+  duration = 0;
+  initialDuration = 0;
+  changingDuration = false;
+  pendingRate = null;
+  videoId = id;
+  pendingRestore = restore;
+  $('load-button').disabled = true;
+  $('load-button').textContent = 'Loading…';
+  $('workspace').hidden = false;
+  $('playback-controls').hidden = true;
+  $('range-error').hidden = true;
+  const playerElementId = `youtube-player-${token}`;
+  $('player-container').replaceChildren(Object.assign(document.createElement('div'), { id:playerElementId, className:'youtube-player' }));
+  $('video-url').value = `https://www.youtube.com/watch?v=${id}`;
+  status('Loading YouTube…');
+  try {
+    const nextPlayer = await createYouTubePlayer({
+      element: playerElementId, videoId:id, startSeconds:restore?.position || 0,
+      onStateChange(state) {
+        if (token !== generation) return;
+        $('play-button').textContent = state === 'playing' || state === 'buffering' ? 'Pause' : 'Play';
+        initializeDuration();
+        restoreRate();
+        if (state === 'paused' || state === 'ended') scheduleSave();
+      },
+      onRatesChange(rates) { if (token === generation) { renderRates(rates); restoreRate(); } },
+      onRateChange(rate) {
+        if (token !== generation) return;
+        $('speed').value = String(rate);
+        scheduleSave();
+      },
+      onError(message) {
+        if (token !== generation) return;
+        loop?.setEnabled(false);
+        renderRepeat();
+        status(message, true);
+      }
+    });
+    if (token !== generation) { nextPlayer.destroy(); return; }
+    player = nextPlayer;
+    loop = new LoopController({
+      player,
+      onRepeatChange(enabled, message) { renderRepeat(); if (message) status(message, false, true); scheduleSave(); },
+      onError(message) { status(message, true); }
+    });
+    $('playback-controls').hidden = false;
+    renderRates();
+    initializeDuration();
+    if (!$('status').classList.contains('error')) status();
+  } catch (error) {
+    if (token === generation) status(error.message || 'YouTube could not load. Try again.', true);
+  } finally {
+    if (token === generation) {
+      $('load-button').disabled = false;
+      $('load-button').textContent = 'Load';
+    }
+  }
+}
+
+$('load-form').addEventListener('submit', event => {
+  event.preventDefault();
+  const id = parseYouTubeURL($('video-url').value);
+  if (!id) { status('Enter a YouTube video link, such as youtube.com/watch?v=… or youtu.be/….', true); $('video-url').focus(); return; }
+  if (!navigator.onLine) { status('Connect to the internet to load YouTube. Your saved settings are still here.', true); return; }
+  if (!$('consent-checkbox').checked) { $('consent-checkbox').reportValidity(); return; }
+  acceptConsent();
+  persist();
+  const restore = saved?.videoId === id ? saved : null;
+  loadVideo(id, restore);
+});
+
+$('play-button').addEventListener('click', () => {
+  if (!player) return;
+  if (['playing','buffering'].includes(player.getState())) player.pause();
+  else player.play();
+});
+$('repeat-button').addEventListener('click', () => {
+  if (!loop || !initialized) { status('Start the video so YouTube can report its duration.', true); return; }
+  if (!loop.enabled && !setPoints(parseTime($('point-a').value), parseTime($('point-b').value))) return;
+  loop.setEnabled(!loop.enabled);
+  renderRepeat();
+  scheduleSave();
+});
+$('set-a').addEventListener('click', () => {
+  if (initialized) setPoints(Math.round(player.getCurrentTime()*10)/10, parseTime($('point-b').value));
+  if (loop) $('point-a').value = formatTime(loop.a, true);
+});
+$('set-b').addEventListener('click', () => {
+  if (initialized) setPoints(parseTime($('point-a').value), Math.round(player.getCurrentTime()*10)/10);
+  if (loop) $('point-b').value = formatTime(loop.b, true);
+});
+for (const id of ['point-a','point-b']) {
+  $(id).addEventListener('change', () => {
+    if (initialized) setPoints(parseTime($('point-a').value), parseTime($('point-b').value));
+  });
+}
+$('speed').addEventListener('change', () => { pendingRate = null; requestRate(Number($('speed').value), true); });
+$('seek').addEventListener('input', () => {
+  scrubbing = true;
+  $('current-time').textContent = formatTime(Number($('seek').value));
+});
+$('seek').addEventListener('change', () => {
+  if (player && initialized) {
+    const position = Number($('seek').value);
+    if (['cued','unstarted','ended'].includes(player.getState())) {
+      // Cue preserves silence before the listener's first Play gesture.
+      if (loop.enabled && (position < loop.a || position >= loop.b)) loop.setEnabled(false);
+      const range = { a:loop.a, b:loop.b, repeat:loop.enabled, rate:player.getRate() };
+      player.load(videoId, position);
+      loop.reset();
+      loop.setRange(range.a, range.b);
+      loop.setEnabled(range.repeat);
+      requestRate(range.rate);
+    } else loop.manualSeek(position);
+    scheduleSave();
+  }
+  scrubbing = false;
+});
+$('seek').addEventListener('blur', () => { scrubbing = false; });
+
+setInterval(() => {
+  if (!player) return;
+  initializeDuration();
+  if (!initialized) return;
+  loop.tick();
+  const position = player.getCurrentTime();
+  if (!scrubbing) {
+    $('seek').value = position;
+    $('seek').setAttribute('aria-valuetext', `${formatTime(position)} of ${formatTime(duration)}`);
+    $('current-time').textContent = formatTime(position);
+  }
+  if (Math.abs(position-lastSavedPosition) >= 5) { lastSavedPosition = position; persist(); }
+}, 80);
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { player?.pause(); persist(); }
+});
+window.addEventListener('pagehide', () => { player?.pause(); persist(); });
+window.addEventListener('offline', () => status('You’re offline. YouTube playback needs an internet connection.', true));
+window.addEventListener('online', () => { if ($('status').textContent.includes('offline')) status('Back online. Load the video again if playback stopped.', false, true); });
+if (!navigator.onLine) status('You’re offline. Connect to load YouTube; saved settings are available.', true);
+
+$('about-button').addEventListener('click', () => $('about-dialog').showModal());
+let aboutOpener = $('about-button');
+$('about-button').addEventListener('click', () => { aboutOpener = $('about-button'); });
+$('privacy-button').addEventListener('click', () => {
+  aboutOpener = $('privacy-button');
+  $('privacy-details').open = true;
+  $('about-dialog').showModal();
+});
+$('about-dialog').addEventListener('close', () => aboutOpener.focus());
+$('export-settings').addEventListener('click', () => {
+  const value = snapshot();
+  if (!value) { $('about-dialog').close(); status('Set a valid A–B passage before exporting settings.', true); return; }
+  const url = URL.createObjectURL(new Blob([JSON.stringify(value,null,2)], {type:'application/json'}));
+  const link = document.createElement('a'); link.href = url; link.download = 'practice-looper-settings.json'; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+});
+$('import-settings').addEventListener('change', async event => {
+  const file = event.target.files?.[0];
+  event.target.value = '';
+  if (!file) return;
+  try {
+    if (file.size > 10000) throw new Error('Choose a Practice looper settings file smaller than 10 KB.');
+    const imported = validateSnapshot(JSON.parse(await file.text()));
+    if (!imported) throw new Error('This is not a valid Practice looper settings file.');
+    ++generation;
+    clearTimeout(saveTimer);
+    player?.pause(); loop?.destroy(); player?.destroy();
+    player = null; loop = null; initialized = false; videoId = null;
+    forgotten = false;
+    saved = imported;
+    $('workspace').hidden = true;
+    $('load-button').disabled = false;
+    $('load-button').textContent = 'Load';
+    $('video-url').value = `https://www.youtube.com/watch?v=${imported.videoId}`;
+    const kept = persist();
+    $('about-dialog').close();
+    if (kept) status('Settings imported. Load the video to restore the passage.', false, true);
+  } catch (error) { $('about-dialog').close(); status(error.message || 'That settings file could not be read.', true); }
+});
+$('forget-settings').addEventListener('click', () => {
+  try {
+    localStorage.removeItem(settingsKey);
+    sessionStorage.removeItem(settingsKey);
+    localStorage.removeItem(consentKey);
+    saved = null;
+    forgotten = true;
+    $('consent-checkbox').checked = false;
+    $('consent-checkbox').required = true;
+    $('youtube-consent').hidden = false;
+    $('about-dialog').close();
+    status('Saved settings removed. The current session will not be saved until you load a video again.', false, true);
+  } catch { $('about-dialog').close(); status('Settings could not be removed. Try again in your browser’s site settings.', true); }
+});
+
+setupPWA({
+  beforeUpdate: async () => {
+    clearTimeout(saveTimer);
+    player?.pause();
+    if (initialized && !validateRange(parseTime($('point-a').value), parseTime($('point-b').value), duration)) {
+      for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close();
+      status('Correct the A–B range before updating so the current passage can be saved.', true);
+      return false;
+    }
+    const success = persist();
+    if (!success) {
+      for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close();
+      status('Update paused because settings could not be saved. Export them from the ••• menu, then retry when storage is available.', true);
+    }
+    return success;
+  },
+  onStatus: status
+});

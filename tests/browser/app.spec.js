@@ -1,0 +1,164 @@
+import { test, expect } from '@playwright/test';
+import { mockYouTube, loadVideo, setPoint, seek, VIDEO_ID } from './fixtures.js';
+
+test.beforeEach(async ({ page }) => {
+  await mockYouTube(page);
+  await page.goto('./');
+});
+
+test('contacts YouTube only after consent and Load, then cues silently', async ({ page }) => {
+  const requests = [];
+  page.on('request', request => {
+    if (new URL(request.url()).hostname.includes('youtube')) requests.push(request.url());
+  });
+  // Observe a complete initial navigation, including any premature API request.
+  await page.reload();
+  await expect(page.locator('#workspace')).toBeHidden();
+  await page.locator('#video-url').fill(`https://youtu.be/${VIDEO_ID}`);
+  await page.locator('#load-button').click();
+  await expect(page.locator('#workspace')).toBeHidden();
+  expect(requests).toEqual([]);
+  await page.locator('#consent-checkbox').check();
+  await page.locator('#load-button').click();
+  await expect(page.locator('#playback-controls')).toBeVisible();
+  expect(requests).toHaveLength(1);
+  await expect.poll(() => page.evaluate(() => window.__fakeYT.state)).toBe(5);
+  expect(await page.evaluate(() => window.__fakeYT.playCalls)).toBe(0);
+  await expect(page.locator('#speed')).toHaveValue('1');
+  await expect(page.locator('#point-a')).toHaveValue('0:00.0');
+  await expect(page.locator('#point-b')).toHaveValue('0:05.0');
+});
+
+test('rejects unrelated links and recovers from an unavailable embed', async ({ page }) => {
+  await page.locator('#consent-checkbox').check();
+  await page.locator('#video-url').fill('https://youtube.com.evil.example/watch?v=M7lc1UVf-VE');
+  await page.locator('#load-button').click();
+  await expect(page.locator('#status')).toContainText('Enter a YouTube video link');
+  await expect(page.locator('#workspace')).toBeHidden();
+  await loadVideo(page, 'blocked0001');
+  await expect(page.locator('#status')).toContainText('owner does not allow');
+  await expect(page.locator('#load-button')).toBeEnabled();
+  await loadVideo(page);
+  await expect(page.locator('#status')).toBeHidden();
+});
+
+test('repeats A–B, accepts slower playback, and obeys pause', async ({ page }) => {
+  await loadVideo(page);
+  await setPoint(page, 'a', '1');
+  await setPoint(page, 'b', '1.6');
+  await page.locator('#speed').selectOption('0.5');
+  await expect.poll(() => page.evaluate(() => window.__fakeYT.rate)).toBe(0.5);
+  await page.locator('#repeat-button').click();
+  await expect(page.locator('#repeat-button')).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => window.__fakeYT.playCalls)).toBe(0);
+  await page.locator('#play-button').click();
+  await expect.poll(() => page.evaluate(() => window.__fakeYT.seekCalls.length), { timeout: 6000 }).toBeGreaterThanOrEqual(2);
+  expect(await page.evaluate(() => window.__fakeYT.seekCalls.every(time => time === 1))).toBe(true);
+  await page.locator('#play-button').click();
+  await expect(page.locator('#play-button')).toHaveText('Play');
+  const paused = await page.evaluate(() => ({ time: window.__fakeYT.currentTime, seeks: window.__fakeYT.seekCalls.length }));
+  await page.waitForTimeout(400);
+  expect(await page.evaluate(() => window.__fakeYT.currentTime)).toBe(paused.time);
+  expect(await page.evaluate(() => window.__fakeYT.seekCalls.length)).toBe(paused.seeks);
+});
+
+test('invalid ranges cannot repeat and manually moving outside disables repeat', async ({ page }) => {
+  await loadVideo(page);
+  await setPoint(page, 'a', '5');
+  await expect(page.locator('#range-error')).toBeVisible();
+  await page.locator('#repeat-button').click();
+  await expect(page.locator('#repeat-button')).toHaveAttribute('aria-pressed', 'false');
+  await setPoint(page, 'b', '10');
+  await expect(page.locator('#range-error')).toBeHidden();
+  await page.locator('#repeat-button').click();
+  await page.locator('#play-button').click();
+  await expect.poll(() => page.evaluate(() => window.__fakeYT.currentTime)).toBeGreaterThanOrEqual(5);
+  await seek(page, 30);
+  await expect(page.locator('#repeat-button')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#status')).toContainText('outside A–B');
+  await page.locator('#repeat-button').click();
+  await expect(page.locator('#repeat-button')).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(() => page.evaluate(() => window.__fakeYT.currentTime)).toBeLessThan(10);
+  await page.waitForTimeout(180);
+  await page.evaluate(() => window.__fakeYT.externalSeek(45));
+  await expect(page.locator('#repeat-button')).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('seeking before first play keeps the passage and does not start sound', async ({ page }) => {
+  await loadVideo(page);
+  await setPoint(page, 'a', '10');
+  await setPoint(page, 'b', '15');
+  await seek(page, 12);
+  await page.locator('#repeat-button').click();
+  await expect(page.locator('#repeat-button')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#point-a')).toHaveValue('0:10.0');
+  await expect(page.locator('#point-b')).toHaveValue('0:15.0');
+  expect(await page.evaluate(() => window.__fakeYT.playCalls)).toBe(0);
+  expect(await page.evaluate(() => window.__fakeYT.state)).toBe(5);
+});
+
+test('restores points, accepted speed, repeat, and position after reload without autoplay', async ({ page }) => {
+  await loadVideo(page);
+  await setPoint(page, 'a', '10');
+  await setPoint(page, 'b', '15');
+  await seek(page, 12);
+  await page.locator('#speed').selectOption('0.5');
+  await page.locator('#repeat-button').click();
+  await expect.poll(() => page.evaluate(() => {
+    const saved = JSON.parse(localStorage.getItem('practice-looper:/practice-looper/:settings:v1'));
+    return saved?.repeat && saved?.rate === 0.5 && saved?.position === 12;
+  })).toBe(true);
+  await page.reload();
+  await expect(page.locator('#workspace')).toBeHidden();
+  await expect(page.locator('#video-url')).toHaveValue(`https://www.youtube.com/watch?v=${VIDEO_ID}`);
+  await expect(page.locator('#youtube-consent')).toBeHidden();
+  await page.locator('#load-button').click();
+  await expect(page.locator('#playback-controls')).toBeVisible();
+  await expect(page.locator('#point-a')).toHaveValue('0:10.0');
+  await expect(page.locator('#point-b')).toHaveValue('0:15.0');
+  await expect(page.locator('#repeat-button')).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(() => page.evaluate(() => window.__fakeYT.rate)).toBe(0.5);
+  expect(await page.evaluate(() => window.__fakeYT.currentTime)).toBe(12);
+  expect(await page.evaluate(() => window.__fakeYT.playCalls)).toBe(0);
+});
+
+test('reports a rejected speed and rejects malformed import without replacing the session', async ({ page }) => {
+  await loadVideo(page);
+  await page.evaluate(() => { window.__fakeYT.rejectRate = true; });
+  await page.locator('#speed').selectOption('0.5');
+  await expect(page.locator('#status')).toContainText('kept the speed at 1×');
+  await expect(page.locator('#speed')).toHaveValue('1');
+  await page.getByRole('button', { name: 'About and settings' }).click();
+  await page.locator('#import-settings').setInputFiles({ name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{"schema":99}') });
+  await expect(page.locator('#about-dialog')).not.toBeVisible();
+  await expect(page.locator('#status')).toContainText('not a valid');
+  await expect(page.locator('#point-b')).toHaveValue('0:05.0');
+  await expect(page.locator('#playback-controls')).toBeVisible();
+});
+
+for (const [width, height] of [[320, 640], [390, 844], [844, 390]]) {
+  test(`fits ${width}×${height} with visible controls and accessible dialogs`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await loadVideo(page);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+    const frame = await page.locator('#player-container iframe').boundingBox();
+    expect(frame.width).toBeGreaterThanOrEqual(200);
+    expect(frame.height).toBeGreaterThanOrEqual(200);
+    expect(await page.locator('#point-a').evaluate(element => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16);
+    await page.locator('#install-button').click();
+    await expect(page.locator('#install-dialog')).toBeVisible();
+    await expect(page.locator('#install-dialog details').nth(0)).toHaveAttribute('open', '');
+    await expect(page.locator('#install-dialog details').nth(1)).toHaveAttribute('open', '');
+    await page.getByText('Computer', { exact: true }).click();
+    await expect(page.locator('#install-dialog details').nth(2)).toHaveAttribute('open', '');
+    expect(await page.locator('#install-dialog').evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#install-dialog')).not.toBeVisible();
+    await expect(page.locator('#install-button')).toBeFocused();
+    await page.getByRole('button', { name: 'About and settings' }).click();
+    await expect(page.locator('#about-dialog')).toBeVisible();
+    expect(await page.locator('#about-dialog').evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+    await page.locator('#about-dialog').getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'About and settings' })).toBeFocused();
+  });
+}
