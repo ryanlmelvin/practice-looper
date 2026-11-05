@@ -161,3 +161,31 @@ for (const [width, height] of [[320, 640], [390, 844], [844, 390]]) {
     await expect(page.getByRole('button', { name: 'About and settings' })).toBeFocused();
   });
 }
+
+
+test('explains a blocked YouTube script, clears the empty player, and retries', async ({ page }) => {
+  await page.route('https://www.youtube.com/iframe_api', route => route.abort('blockedbyclient'));
+  await page.locator('#video-url').fill('https://www.youtube.com/watch?v=rn_YodiJO6k&ra=m');
+  await page.locator('#load-button').click();
+  await expect(page.locator('#status')).toContainText('player script');
+  await expect(page.locator('#status')).toContainText('content blockers');
+  await expect(page.locator('#workspace')).toBeHidden();
+  await expect(page.locator('#player-container')).toBeEmpty();
+  await expect(page.locator('#load-button')).toBeEnabled();
+  await page.unroute('https://www.youtube.com/iframe_api');
+  await mockYouTube(page);
+  await page.locator('#load-button').click();
+  await expect(page.locator('#playback-controls')).toBeVisible();
+  expect(await page.evaluate(() => window.__fakeYT.videoId)).toBe('rn_YodiJO6k');
+});
+
+test('distinguishes a player API timeout from a blocked script', async ({ page }) => {
+  await page.clock.install();
+  await page.route('https://www.youtube.com/iframe_api', route => route.fulfill({ contentType:'text/javascript', body:'' }));
+  await page.locator('#video-url').fill(`https://youtu.be/${VIDEO_ID}`);
+  await page.locator('#load-button').click();
+  await page.clock.fastForward(30001);
+  await expect(page.locator('#status')).toContainText('took too long');
+  await expect(page.locator('#workspace')).toBeHidden();
+  await expect(page.locator('#load-button')).toBeEnabled();
+});

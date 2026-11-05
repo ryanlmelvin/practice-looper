@@ -365,7 +365,11 @@ async function loadVideo(id, restore = null) {
     if (!$('status').classList.contains('error')) status();
     return true;
   } catch (error) {
-    if (token === generation) status(error.message || 'YouTube could not load. Try again.', true);
+    if (token === generation) {
+      $('workspace').hidden = true;
+      $('player-container').replaceChildren();
+      status(error.message || 'YouTube could not load. Try again.', true);
+    }
   } finally {
     if (token === generation) {
       $('load-button').disabled = false;

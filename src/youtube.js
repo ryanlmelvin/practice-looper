@@ -69,12 +69,14 @@ function loadAPI() {
       script.onerror = null;
       if (window.onYouTubeIframeAPIReady === ready) window.onYouTubeIframeAPIReady = previousReady;
     }
-    function fail() {
+    function fail(timedOut = false) {
       if (settled) return;
       settled = true;
       cleanup();
       script.remove();
-      reject(new Error('YouTube did not load. Check your connection, then try Load again.'));
+      reject(new Error(timedOut
+        ? 'YouTube took too long to load. Try Load again. If it keeps failing in Safari, reload this page and try another network.'
+        : 'The browser could not load YouTube’s player script. Try Load again. In Safari, try turning off content blockers for this website, then reload. If it still fails, try another network.'));
     }
     function ready() {
       if (settled) return;
@@ -87,8 +89,8 @@ function loadAPI() {
     window.onYouTubeIframeAPIReady = ready;
     script.src = 'https://www.youtube.com/iframe_api';
     script.async = true;
-    script.onerror = fail;
-    timeout = setTimeout(fail, 15000);
+    script.onerror = () => fail();
+    timeout = setTimeout(() => fail(true), 30000);
     document.head.append(script);
   });
   apiPromise = pending;
