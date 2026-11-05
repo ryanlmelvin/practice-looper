@@ -1,6 +1,6 @@
 /* Generated release and precache list are supplied by scripts/build.mjs. */
-const RELEASE = '6c4c704653b3';
-const PRECACHE = ["./assets/app-TSCMWIUQ.js","./assets/styles-b1611227ae45.css","./icon-192.png","./icon-512.png","./icon.svg","./index.html","./manifest.webmanifest","./release.json"];
+const RELEASE = '19d0e7fd9a36';
+const PRECACHE = ["./assets/app-24LNCKNS.js","./assets/styles-a1d991b6da74.css","./icon-192.png","./icon-512.png","./icon.svg","./index.html","./manifest.webmanifest","./release.json"];
 const SCOPE = new URL(self.registration.scope);
 const CACHE_PREFIX = `practice-looper:${SCOPE.pathname}:`;
 const CACHE_NAME = `${CACHE_PREFIX}${RELEASE}`;

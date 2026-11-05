@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "Practice looper",
-  "short_name": "Practice looper",
+  "name": "Loopnook",
+  "short_name": "Loopnook",
   "description": "Repeat a YouTube passage while you practice.",
   "start_url": "./",
   "scope": "./",

@@ -1,1 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="104" fill="#176652"/><g fill="none" stroke="#fff" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"><path d="M147 212v-22a46 46 0 0 1 46-46h172m-42-42 42 42-42 42M365 300v22a46 46 0 0 1-46 46H147m42-42-42 42 42 42"/></g><path d="m220 208 72 48-72 48z" fill="#fff"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <title>Loopnook</title>
+  <rect width="256" height="256" rx="52" fill="#17191b"/>
+  <path d="M168 50H110C73 50 50 73 50 110V150C50 187 73 210 110 210H150C187 210 210 187 210 150V134C210 111 191 92 168 92H142C119 92 102 109 102 132V138C102 154 114 166 130 166H150" fill="none" stroke="#d4f477" stroke-width="23" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

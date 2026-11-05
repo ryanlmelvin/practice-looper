@@ -187,7 +187,7 @@ test('independent recovery installs a release without clearing saved settings', 
   await page.evaluate(({ key, value }) => localStorage.setItem(key, JSON.stringify(value)), { key: SETTINGS_KEY, value: savedPractice });
   releaseServer.publish('b');
   await page.goto(`${releaseServer.url}update.html`);
-  await expect(page.getByRole('heading', { name: 'Update Practice Looper' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Update Loopnook' })).toBeVisible();
   await page.getByRole('button', { name: 'Check and update' }).click();
   await expect(page).toHaveURL(releaseServer.url);
   await expect(page.locator('meta[name="fixture-release"]')).toHaveAttribute('content', 'b');

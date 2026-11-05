@@ -509,7 +509,7 @@ $('export-settings').addEventListener('click', () => {
   const value = snapshot();
   if (!value) { $('about-dialog').close(); status('Set a valid A–B passage before exporting settings.', true); return; }
   const url = URL.createObjectURL(new Blob([JSON.stringify(value,null,2)], {type:'application/json'}));
-  const link = document.createElement('a'); link.href = url; link.download = 'practice-looper-settings.json'; link.click();
+  const link = document.createElement('a'); link.href = url; link.download = 'loopnook-settings.json'; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 });
 $('import-settings').addEventListener('change', async event => {
@@ -517,9 +517,9 @@ $('import-settings').addEventListener('change', async event => {
   event.target.value = '';
   if (!file) return;
   try {
-    if (file.size > 10000) throw new Error('Choose a Practice looper settings file smaller than 10 KB.');
+    if (file.size > 10000) throw new Error('Choose a Loopnook settings file smaller than 10 KB.');
     const imported = validateSnapshot(JSON.parse(await file.text()));
-    if (!imported) throw new Error('This is not a valid Practice looper settings file.');
+    if (!imported) throw new Error('This is not a valid Loopnook settings file.');
     persist();
     ++generation;
     clearTimeout(saveTimer);
