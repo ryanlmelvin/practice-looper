@@ -2,7 +2,7 @@
   "id": "./",
   "name": "Riffbolt",
   "short_name": "Riffbolt",
-  "description": "Repeat a YouTube passage while you practice.",
+  "description": "Loop it. Nail it. Repeat a YouTube passage while you practice.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

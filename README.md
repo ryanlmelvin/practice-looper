@@ -1,5 +1,7 @@
 # Riffbolt
 
+Loop it. Nail it.
+
 [Open Riffbolt](https://ryanlmelvin.github.io/practice-looper/)
 
 A small, installable YouTube A–B practice tool. Paste a video link, load it, set A and B, turn on Repeat, and choose a speed supported by the video. Edit times as minutes:seconds or seconds. The official YouTube player stays visible with its own controls.
