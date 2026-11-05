@@ -19,7 +19,7 @@ By [Ryan L. Melvin](https://ryanlmelvin.com).
 
 YouTube requires an internet connection and an embeddable video. Repeat uses supported seeks; it cannot guarantee gapless or sample-accurate boundaries. Advertisements, buffering, keyframes, and browser behavior can affect playback. A changing video duration disables fixed A–B repeat. The app neither downloads nor processes streaming audio.
 
-First load requires agreement to the app privacy/terms notice. The YouTube API and embed are loaded only after the user chooses Load. No application analytics, accounts, or backend are included. GitHub and YouTube handle their own requests according to the linked provider policies.
+Loading a video accepts the app privacy/terms notice. The YouTube API and embed are loaded only after the user chooses Load. No application analytics, accounts, or backend are included. GitHub and YouTube handle their own requests according to the linked provider policies.
 
 ## Develop and verify
 

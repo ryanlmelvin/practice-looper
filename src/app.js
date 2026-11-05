@@ -149,8 +149,6 @@ function persistHistory(value) {
 }
 
 function acceptConsent(persist = true) {
-  $('consent-checkbox').checked = true;
-  $('consent-checkbox').required = false;
   $('youtube-consent').hidden = true;
   if (persist) {
     try { localStorage.setItem(consentKey, 'yes'); } catch { /* Consent remains valid for this session. */ }
@@ -382,7 +380,6 @@ $('load-form').addEventListener('submit', event => {
   const id = parseYouTubeURL($('video-url').value);
   if (!id) { status('Enter a YouTube video link, such as youtube.com/watch?v=… or youtu.be/….', true); $('video-url').focus(); return; }
   if (!navigator.onLine) { status('Connect to the internet to load YouTube. Your saved loop is still here.', true); return; }
-  if (!$('consent-checkbox').checked) { $('consent-checkbox').reportValidity(); return; }
   acceptConsent();
   persist();
   const restore = saved?.videoId === id ? saved : null;
@@ -408,7 +405,6 @@ $('history-list').addEventListener('click', async event => {
   }
   if ($('load-button').disabled) return;
   if (!navigator.onLine) { status('Connect to the internet to load YouTube. Your history is still here.', true); return; }
-  if (!$('consent-checkbox').checked) { $('consent-checkbox').reportValidity(); return; }
   acceptConsent();
   persist();
   if (await loadVideo(entry.videoId, { ...entry, position:entry.a })) $('play-button').focus();
@@ -612,8 +608,6 @@ $('forget-settings').addEventListener('click', () => {
     renderHistory();
     saved = null;
     forgotten = true;
-    $('consent-checkbox').checked = false;
-    $('consent-checkbox').required = true;
     $('youtube-consent').hidden = false;
     $('about-dialog').close();
     status('Saved loop, practice history, and YouTube consent removed. The current session will not be saved until you load a video again.', false, true);

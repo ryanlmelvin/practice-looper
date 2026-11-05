@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => {
   await page.goto('./');
 });
 
-test('contacts YouTube only after consent and Load, then cues silently', async ({ page }) => {
+test('contacts YouTube only after Load, then cues silently', async ({ page }) => {
   const requests = [];
   page.on('request', request => {
     if (new URL(request.url()).hostname.includes('youtube')) requests.push(request.url());
@@ -15,10 +15,9 @@ test('contacts YouTube only after consent and Load, then cues silently', async (
   await page.reload();
   await expect(page.locator('#workspace')).toBeHidden();
   await page.locator('#video-url').fill(`https://youtu.be/${VIDEO_ID}`);
-  await page.locator('#load-button').click();
-  await expect(page.locator('#workspace')).toBeHidden();
+  await expect(page.locator('#youtube-consent')).toContainText('By using, you agree');
+  await expect(page.locator('#consent-checkbox')).toHaveCount(0);
   expect(requests).toEqual([]);
-  await page.locator('#consent-checkbox').check();
   await page.locator('#load-button').click();
   await expect(page.locator('#playback-controls')).toBeVisible();
   expect(requests.filter(url => new URL(url).pathname === '/iframe_api')).toHaveLength(1);
@@ -31,7 +30,6 @@ test('contacts YouTube only after consent and Load, then cues silently', async (
 });
 
 test('rejects unrelated links and recovers from an unavailable embed', async ({ page }) => {
-  await page.locator('#consent-checkbox').check();
   await page.locator('#video-url').fill('https://youtube.com.evil.example/watch?v=M7lc1UVf-VE');
   await page.locator('#load-button').click();
   await expect(page.locator('#status')).toContainText('Enter a YouTube video link');

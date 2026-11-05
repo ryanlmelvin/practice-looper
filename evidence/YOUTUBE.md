@@ -15,7 +15,7 @@ The adapter cues a video without autoplay. Restored position uses `cueVideoById`
 
 Source: [YouTube IFrame Player API](https://developers.google.com/youtube/iframe_api_reference).
 
-The first load requires agreement to the app's accessible privacy policy. The app links to YouTube's terms and Google's privacy policy. Playback remains in YouTube; the app does not extract, cache, or process the stream or provide background playback.
+Loading a video accepts the app's accessible privacy policy through the visible notice. The app links to YouTube's terms and Google's privacy policy. Playback remains in YouTube; the app does not extract, cache, or process the stream or provide background playback.
 
 Source: [YouTube developer policies](https://developers.google.com/youtube/terms/developer-policies).
 

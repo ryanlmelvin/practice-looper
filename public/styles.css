@@ -74,7 +74,6 @@ header { display: flex; align-items: center; justify-content: space-between; gap
 #video-url { width: 100%; flex: 1; }
 #load-button { min-width: 84px; }
 .consent { font-size: 14px; margin: 16px 0; max-width: 640px; color: var(--muted); }
-.consent label { display: flex; align-items: center; gap: 10px; min-height: 32px; color: #f1f0e9; font-size: 16px; }
 .consent p { margin: 5px 0; }
 .text-button { display: inline; min-height: 0; border: 0; border-radius: 0; background: none; padding: 0; box-shadow: none; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; font-weight: inherit; }
 #status { padding: 12px 14px; border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 10px; background: var(--surface); overflow-wrap: anywhere; }

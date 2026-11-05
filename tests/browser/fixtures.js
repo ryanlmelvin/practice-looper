@@ -96,7 +96,6 @@ export async function mockYouTube(page) {
 
 export async function loadVideo(page, id = VIDEO_ID) {
   await page.locator('#video-url').fill(`https://youtu.be/${id}`);
-  if (await page.locator('#consent-checkbox').isVisible()) await page.locator('#consent-checkbox').check();
   await page.locator('#load-button').click();
   await page.locator('#playback-controls').waitFor({ state: 'visible' });
 }
