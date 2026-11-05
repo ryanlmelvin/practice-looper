@@ -12,8 +12,8 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./assets/styles-5186db0a6300.css">
-  <script type="module" src="./assets/app-HVGMTW7R.js"></script>
+  <link rel="stylesheet" href="./assets/styles-e68db2a3a3d4.css">
+  <script type="module" src="./assets/app-236X3B7W.js"></script>
 </head>
 <body>
   <div class="app">
@@ -51,6 +51,7 @@
           <div class="transport">
             <button type="button" id="play-button" class="primary">Play</button>
             <button type="button" id="repeat-button" aria-pressed="false">Repeat</button>
+            <button type="button" id="share-loop">Share loop</button>
             <label class="speed">Speed <select id="speed" aria-label="Playback speed"><option value="1">1×</option></select></label>
           </div>
           <div class="points">
@@ -72,6 +73,12 @@
       </section>
     </main>
   </div>
+  <dialog id="share-dialog" aria-labelledby="share-title">
+    <div class="dialog-heading"><h2 id="share-title">Share loop</h2><form method="dialog"><button>Close</button></form></div>
+    <input id="share-link" type="text" readonly aria-label="Loop share URL">
+    <button id="copy-share-link" type="button">Copy link</button>
+    <p id="share-status" role="status" hidden></p>
+  </dialog>
   <dialog id="install-dialog" aria-labelledby="install-title">
     <div class="dialog-heading"><h2 id="install-title">Install Riffbolt</h2><form method="dialog"><button>Close</button></form></div>
     <details open><summary>iPhone or iPad</summary><p>Open Riffbolt in Safari. Tap Share (the square with an up arrow); open the … menu first if needed. Choose Add to Home Screen; if missing, find it under Edit Actions. Turn on Open as Web App if shown, then tap Add.</p></details>
@@ -85,10 +92,10 @@
     <p>Loop it. Nail it.</p>
     <p>By <a href="https://ryanlmelvin.com" target="_blank" rel="noopener noreferrer">Ryan L. Melvin</a></p>
     <p>Set A and B at least half a second apart. Edit either time as minutes:seconds or seconds. Repeat uses YouTube seeks; buffering and short gaps can occur. Speed choices come from the video.</p>
-    <p>Export/import transfers one loop: its video, A–B points, speed, repeat choice, and playback position. Practice history is not included.</p>
-    <div class="settings-actions"><button id="export-settings" type="button">Export current loop</button><label class="file-button">Import loop<input id="import-settings" type="file" accept="application/json,.json"></label></div>
+    <p>Export your whole practice history. Import merges it with this browser’s history, keeping the most recently practiced version of each loop.</p>
+    <div class="settings-actions"><button id="export-settings" type="button">Export history</button><label class="file-button">Import history<input id="import-settings" type="file" accept="application/json,.json"></label></div>
     <details id="privacy-details"><summary>Privacy &amp; terms</summary><p>This browser saves your current loop, practice history, and YouTube consent. Clear saved browser data removes all three. There are no app accounts or analytics. Riffbolt is provided as-is, without a playback or timing guarantee.</p><p>Loading a video connects to YouTube, which may use cookies and receive your IP address and device data. Use of the player is subject to <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer">YouTube’s Terms of Service</a> and <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google’s Privacy Policy</a>. GitHub hosts this app under its <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener noreferrer">Privacy Statement</a>.</p><button id="forget-settings" type="button">Clear saved browser data</button></details>
-    <div class="release"><span>Version 873f57634973</span><a href="./update.html">Update recovery</a></div>
+    <div class="release"><span>Version 9530e47d74d4</span><a href="./update.html">Update recovery</a></div>
     <button type="button" data-update hidden>Update now</button>
   </dialog>
   <noscript>Riffbolt needs JavaScript to play and repeat YouTube videos.</noscript>

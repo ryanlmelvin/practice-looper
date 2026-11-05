@@ -105,14 +105,14 @@ header { display: flex; align-items: center; justify-content: space-between; gap
 .error { margin-bottom: 0; font-size: 14px; }
 #history { margin-top: 20px; }
 .history-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
-.history-heading button, .history-delete { background: transparent; box-shadow: none; font-size: 14px; }
+.history-heading button, .history-delete, .history-share { background: transparent; box-shadow: none; font-size: 14px; }
 #history-list { list-style: none; margin: 0 -4px; padding: 4px; max-height: min(320px, 45dvh); overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; }
 #history-list li { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 #history-list li:last-child { margin-bottom: 0; }
 .history-entry { flex: 1; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; overflow-wrap: anywhere; }
 .history-title { max-width: 100%; }
 .history-range { font: 13px/1.5 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
-.history-delete { flex-shrink: 0; padding: 10px 12px; }
+.history-delete, .history-share { flex-shrink: 0; padding: 10px 12px; }
 dialog { width: calc(100% - 32px); max-width: 520px; max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); padding: 24px; border: 1px solid var(--border); border-radius: 16px; color: inherit; background: var(--surface); box-shadow: 0 24px 80px #0008; overflow: auto; overflow-wrap: anywhere; }
 dialog::backdrop { background: #080a0cbb; }
 .dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
@@ -176,4 +176,10 @@ dialog [data-update] { margin-top: 16px; }
 @media (forced-colors: active) {
   button.primary, button[aria-pressed="true"] { border: 2px solid Highlight; }
   .point input:not([type=range]) { border-color: ButtonBorder; }
+}
+
+#share-link { width: 100%; margin-bottom: 12px; }
+@media (max-width: 420px) {
+  #history-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; }
+  .history-entry { grid-row: span 2; min-width: 0; height: 100%; }
 }

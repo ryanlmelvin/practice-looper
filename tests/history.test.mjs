@@ -175,3 +175,17 @@ test('history storage failures propagate without claiming a successful save or c
   assert.throws(() => unwritable.remove(segmentKey(example())), error => error === failure);
   assert.throws(() => unwritable.clear(), error => error === failure);
 });
+
+test('history import merges by segment and latest practice and rejects bad batches without writing', () => {
+  const storage = memoryStorage();
+  const store = createHistoryStore(storage, path);
+  store.record(example(), { title:'Local', practicedAt:20 });
+  store.merge([{ ...example({ rate:1 }), title:'Older import', practicedAt:10 }]);
+  assert.equal(store.read()[0].title, 'Local');
+  store.merge([{ ...example({ rate:0.75 }), title:'Newer import', practicedAt:30 }]);
+  assert.equal(store.read().length, 1);
+  assert.equal(store.read()[0].rate, 0.75);
+  const before = storage.getItem(historyKey(path));
+  assert.throws(() => store.merge([{ ...example(), title:'Valid', practicedAt:40 }, { invalid:true }]));
+  assert.equal(storage.getItem(historyKey(path)), before);
+});

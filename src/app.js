@@ -2,6 +2,7 @@ import { createYouTubePlayer, parseYouTubeURL, fetchYouTubeTitle } from './youtu
 import { LoopController, validateRange } from './loop-controller.js';
 import { createSettingsStore, parseTime, formatTime, validateSnapshot, restoreForDuration } from './state.js';
 import { createHistoryStore, historyKey, segmentKey } from './history.js';
+import { createShareLink, readShareLink } from './share-link.js';
 import { setupPWA } from './pwa.js';
 
 const $ = id => document.getElementById(id);
@@ -53,7 +54,7 @@ try {
   saved = sessionStore.read() || store.read();
   if (localStorage.getItem(consentKey) === 'yes') acceptConsent(false);
 } catch {
-  status('The saved loop could not be read. You can still practice; export the current loop to keep a copy.', true);
+  status('The saved loop could not be read. You can still practice; export your history to keep a copy.', true);
 }
 if (saved) $('video-url').value = `https://www.youtube.com/watch?v=${saved.videoId}`;
 try {
@@ -92,7 +93,12 @@ function renderHistory() {
       remove.className = 'history-delete';
       remove.textContent = 'Delete';
       remove.setAttribute('aria-label', `Delete ${title.textContent}, ${range}`);
-      row.append(button, remove);
+      const share = document.createElement('button');
+      share.type = 'button';
+      share.className = 'history-share';
+      share.textContent = 'Share';
+      share.setAttribute('aria-label', `Share ${title.textContent}, ${range}`);
+      row.append(button, share, remove);
       return row;
     }));
     historyRenderKey = renderKey;
@@ -172,7 +178,7 @@ function persist() {
     storageErrorShown = false;
     return persistHistory(value);
   } catch {
-    if (!storageErrorShown) status('The current loop could not be saved. Keep this window open or export the current loop from the ••• menu.', true);
+    if (!storageErrorShown) status('The current loop could not be saved. Keep this window open or share the loop to keep a copy.', true);
     storageErrorShown = true;
     return false;
   }
@@ -388,6 +394,10 @@ $('history-list').addEventListener('click', async event => {
   const key = button?.closest('li')?.dataset.segmentKey;
   const entry = history.find(value => segmentKey(value) === key);
   if (!entry) return;
+  if (button.classList.contains('history-share')) {
+    openShare(entry, button);
+    return;
+  }
   if (button.classList.contains('history-delete')) {
     try {
       history = historyStore.remove(key);
@@ -505,38 +515,90 @@ $('privacy-button').addEventListener('click', () => {
   $('about-dialog').showModal();
 });
 $('about-dialog').addEventListener('close', () => aboutOpener.focus());
+let shareOpener;
+function openShare(value, opener) {
+  try {
+    $('share-link').value = createShareLink(value, location.href);
+    shareOpener = opener;
+    $('share-status').hidden = true;
+    $('share-dialog').showModal();
+    $('share-link').select();
+  } catch (error) { status(error.message, true); }
+}
+$('share-loop').addEventListener('click', event => openShare(snapshot(), event.currentTarget));
+$('share-dialog').addEventListener('close', () => {
+  if (shareOpener?.isConnected) shareOpener.focus();
+});
+$('copy-share-link').addEventListener('click', async () => {
+  const field = $('share-link');
+  try {
+    await navigator.clipboard.writeText(field.value);
+    $('share-status').textContent = 'Link copied.';
+  } catch {
+    field.focus(); field.select();
+    $('share-status').textContent = 'Copy access is unavailable. Copy the selected link.';
+  }
+  $('share-status').hidden = false;
+});
+
+function stageLoop(value) {
+  persist();
+  ++generation;
+  clearTimeout(saveTimer);
+  player?.pause(); loop?.destroy(); player?.destroy();
+  player = null; loop = null; initialized = false; videoId = null;
+  practicedSegment = null;
+  titleController?.abort();
+  forgotten = false;
+  saved = value;
+  $('workspace').hidden = true;
+  $('load-button').disabled = false;
+  $('load-button').textContent = 'Load';
+  $('video-url').value = `https://www.youtube.com/watch?v=${value.videoId}`;
+}
+function openSharedLoop() {
+  try {
+    const value = readShareLink(location.hash);
+    if (!value) return;
+    stageLoop(value);
+    status('Shared loop opened. Load the video to practice.', false, true);
+  } catch (error) { status(error.message, true); }
+}
+window.addEventListener('hashchange', openSharedLoop);
+openSharedLoop();
+
 $('export-settings').addEventListener('click', () => {
-  const value = snapshot();
-  if (!value) { $('about-dialog').close(); status('Set a valid A–B passage before exporting a loop.', true); return; }
-  const url = URL.createObjectURL(new Blob([JSON.stringify(value,null,2)], {type:'application/json'}));
-  const link = document.createElement('a'); link.href = url; link.download = 'riffbolt-loop.json'; link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  try {
+    persist();
+    const entries = historyStore.read();
+    const url = URL.createObjectURL(new Blob([JSON.stringify({ schema:1, app:'riffbolt', history:entries },null,2)], {type:'application/json'}));
+    const link = document.createElement('a'); link.href = url; link.download = 'riffbolt-history.json'; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  } catch { $('about-dialog').close(); status('History could not be exported. Try again.', true); }
 });
 $('import-settings').addEventListener('change', async event => {
   const file = event.target.files?.[0];
   event.target.value = '';
   if (!file) return;
   try {
-    if (file.size > 10000) throw new Error('Choose a Riffbolt loop file smaller than 10 KB.');
-    const imported = validateSnapshot(JSON.parse(await file.text()));
-    if (!imported) throw new Error('This is not a valid Riffbolt loop file.');
-    persist();
-    ++generation;
-    clearTimeout(saveTimer);
-    player?.pause(); loop?.destroy(); player?.destroy();
-    player = null; loop = null; initialized = false; videoId = null;
-    practicedSegment = null;
-    titleController?.abort();
-    forgotten = false;
-    saved = imported;
-    $('workspace').hidden = true;
-    $('load-button').disabled = false;
-    $('load-button').textContent = 'Load';
-    $('video-url').value = `https://www.youtube.com/watch?v=${imported.videoId}`;
-    const kept = persist();
+    if (file.size > 1000000) throw new Error('Choose a Riffbolt history file smaller than 1 MB.');
+    const value = JSON.parse(await file.text());
+    // Continue accepting loop files exported before history backups were added.
+    const legacy = validateSnapshot(value);
+    if (legacy) {
+      stageLoop(legacy);
+      persist();
+      status('Loop imported. Load the video to restore the passage.', false, true);
+    } else {
+      if (value?.schema !== 1 || value.app !== 'riffbolt' || !Array.isArray(value.history)) throw new Error('This is not a valid Riffbolt history file.');
+      if (!historyStore) historyStore = createHistoryStore(localStorage, scopePath);
+      history = historyStore.merge(value.history);
+      forgotten = false;
+      renderHistory();
+      status('History imported and merged with saved loops.', false, true);
+    }
     $('about-dialog').close();
-    if (kept) status('Loop imported. Load the video to restore the passage.', false, true);
-  } catch (error) { $('about-dialog').close(); status(error.message || 'That loop file could not be read.', true); }
+  } catch (error) { $('about-dialog').close(); status(error.message || 'That history file could not be read.', true); }
 });
 $('forget-settings').addEventListener('click', () => {
   try {
@@ -570,7 +632,7 @@ setupPWA({
     const success = persist();
     if (!success) {
       for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close();
-      status('Update paused because the current loop could not be saved. Export it from the ••• menu, then retry when storage is available.', true);
+      status('Update paused because the current loop could not be saved. Share the loop to keep a copy, then retry when storage is available.', true);
     }
     return success;
   },

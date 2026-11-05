@@ -11,7 +11,7 @@ export function segmentKey(snapshot) {
   return `${snapshot.videoId}:${snapshot.a}:${snapshot.b}`;
 }
 
-function validateEntry(value) {
+export function validateEntry(value) {
   const snapshot = validateSnapshot(value);
   if (!snapshot || typeof value.title !== 'string' ||
       !Number.isFinite(value.practicedAt) || value.practicedAt < 0) return null;
@@ -59,6 +59,14 @@ export function createHistoryStore(storage, path) {
         entry = { ...existing, title: existing.title || entry.title };
       } else if (!entry.title && existing) entry.title = existing.title;
       const entries = recentEntries([entry, ...previous.filter(value => segmentKey(value) !== id)]);
+      storage.setItem(key, JSON.stringify(entries));
+      return entries;
+    },
+    merge(values) {
+      if (!Array.isArray(values) || values.length > MAX_HISTORY || values.some(value => !validateEntry(value))) {
+        throw new Error('This is not a valid Riffbolt history file.');
+      }
+      const entries = recentEntries([...read(), ...values.map(validateEntry)]);
       storage.setItem(key, JSON.stringify(entries));
       return entries;
     },
