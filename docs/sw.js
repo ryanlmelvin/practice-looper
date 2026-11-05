@@ -1,5 +1,5 @@
 /* Generated release and precache list are supplied by scripts/build.mjs. */
-const RELEASE = '58fbede5f656';
+const RELEASE = '873f57634973';
 const PRECACHE = ["./assets/app-HVGMTW7R.js","./assets/styles-5186db0a6300.css","./icon-192.png","./icon-512.png","./icon.svg","./index.html","./logo.svg","./manifest.webmanifest","./release.json"];
 const SCOPE = new URL(self.registration.scope);
 const CACHE_PREFIX = `practice-looper:${SCOPE.pathname}:`;
