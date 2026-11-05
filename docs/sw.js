@@ -1,5 +1,5 @@
 /* Generated release and precache list are supplied by scripts/build.mjs. */
-const RELEASE = 'caec22636872';
+const RELEASE = 'f7fc5178158d';
 const PRECACHE = ["./apple-touch-icon.png","./assets/app-LURRIU6Y.js","./assets/styles-985fec3c8c12.css","./icon-192-v2.png","./icon-192.png","./icon-512-v2.png","./icon-512.png","./icon.svg","./index.html","./logo.svg","./manifest.webmanifest","./release.json"];
 const SCOPE = new URL(self.registration.scope);
 const CACHE_PREFIX = `practice-looper:${SCOPE.pathname}:`;
