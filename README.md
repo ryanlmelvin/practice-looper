@@ -11,6 +11,7 @@ By [Ryan L. Melvin](https://ryanlmelvin.com).
 - YouTube only, as selected for the first release. No Apple Music credentials, account setup, or local-file player.
 - Editable A/B points, play/pause, seeking, repeat, and accepted playback speeds. Manual seeks outside the passage switch repeat off. Playback pauses when the app is hidden.
 - The latest setup is remembered without starting sound on reopen. Each tab preserves its own reload snapshot; the focused tab writes the shared setup for newly opened windows.
+- Scrollable history remembers the 100 most recent practiced A–B segments in this browser, newest first. Select a segment to restore its points and speed at A without autoplay. Practicing it again moves it to the top; Delete removes one entry and Clear removes all history.
 - Settings export/import in the ••• menu. These files contain the video identifier, position, points, speed, and repeat preference, with no media or authorization credentials.
 - Browser Install button, platform help, offline app shell, explicit update/reload choice, and independent [update recovery](https://ryanlmelvin.github.io/practice-looper/update.html).
 

@@ -27,6 +27,23 @@ export function parseYouTubeURL(input) {
   return VIDEO_ID.test(id || '') ? id : null;
 }
 
+/** Optional metadata, requested only after the user chooses to load YouTube. */
+export async function fetchYouTubeTitle(videoId, { signal } = {}) {
+  if (typeof videoId !== 'string' || !VIDEO_ID.test(videoId)) return '';
+  const url = new URL('https://www.youtube.com/oembed');
+  url.searchParams.set('url', `https://www.youtube.com/watch?v=${videoId}`);
+  url.searchParams.set('format', 'json');
+  try {
+    const response = await fetch(url, { credentials: 'omit', signal });
+    if (!response.ok) return '';
+    const metadata = await response.json();
+    return typeof metadata?.title === 'string' ? metadata.title.trim().slice(0, 300) : '';
+  } catch {
+    // A missing title must never prevent playback or restoring a passage.
+    return '';
+  }
+}
+
 const STATES = { '-1': 'unstarted', 0: 'ended', 1: 'playing', 2: 'paused', 3: 'buffering', 5: 'cued' };
 const ERRORS = {
   2: 'This YouTube link is invalid. Check the link and load it again.',

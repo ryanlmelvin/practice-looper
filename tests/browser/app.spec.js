@@ -21,7 +21,8 @@ test('contacts YouTube only after consent and Load, then cues silently', async (
   await page.locator('#consent-checkbox').check();
   await page.locator('#load-button').click();
   await expect(page.locator('#playback-controls')).toBeVisible();
-  expect(requests).toHaveLength(1);
+  expect(requests.filter(url => new URL(url).pathname === '/iframe_api')).toHaveLength(1);
+  await expect.poll(() => requests.filter(url => new URL(url).pathname === '/oembed').length).toBe(1);
   await expect.poll(() => page.evaluate(() => window.__fakeYT.state)).toBe(5);
   expect(await page.evaluate(() => window.__fakeYT.playCalls)).toBe(0);
   await expect(page.locator('#speed')).toHaveValue('1');

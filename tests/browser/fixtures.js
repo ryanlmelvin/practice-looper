@@ -82,6 +82,11 @@ export const fakeYouTubeAPI = `(() => {
 
 export async function mockYouTube(page) {
   let requests = 0;
+  await page.route('https://www.youtube.com/oembed?*', route => {
+    const videoURL = new URL(route.request().url()).searchParams.get('url');
+    const id = new URL(videoURL).searchParams.get('v');
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ title: `Video ${id}` }) });
+  });
   await page.route('https://www.youtube.com/iframe_api', route => {
     requests++;
     return route.fulfill({ contentType: 'text/javascript', body: fakeYouTubeAPI });

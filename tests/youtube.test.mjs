@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseYouTubeURL, createYouTubePlayer } from '../src/youtube.js';
+import { parseYouTubeURL, createYouTubePlayer, fetchYouTubeTitle } from '../src/youtube.js';
 
 test('extracts one video from supported YouTube link formats', () => {
   const id = 'M7lc1UVf-VE';
@@ -34,6 +34,44 @@ test('rejects malformed links, unrelated hosts, and missing video IDs', () => {
     'https://youtube.com:1234/watch?v=M7lc1UVf-VE',
     'javascript:alert(1)', 'ftp://youtube.com/watch?v=M7lc1UVf-VE',
   ]) assert.equal(parseYouTubeURL(input), null, String(input));
+});
+
+test('fetches only a bounded title without credentials and forwards cancellation', async t => {
+  const original = globalThis.fetch;
+  t.after(() => { globalThis.fetch = original; });
+  const controller = new AbortController();
+  const requests = [];
+  globalThis.fetch = async (url, options) => {
+    requests.push({ url, options });
+    return { ok: true, json: async () => ({ title: `  ${'A'.repeat(400)}  `, html: '<iframe></iframe>' }) };
+  };
+  assert.equal(await fetchYouTubeTitle('M7lc1UVf-VE', { signal: controller.signal }), 'A'.repeat(300));
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url.origin, 'https://www.youtube.com');
+  assert.equal(requests[0].url.pathname, '/oembed');
+  assert.equal(requests[0].url.searchParams.get('url'), 'https://www.youtube.com/watch?v=M7lc1UVf-VE');
+  assert.equal(requests[0].url.searchParams.get('format'), 'json');
+  assert.equal(requests[0].options.credentials, 'omit');
+  assert.equal(requests[0].options.signal, controller.signal);
+  for (const input of ['', null, undefined, [], 'short', 'https://youtu.be/M7lc1UVf-VE']) {
+    assert.equal(await fetchYouTubeTitle(input), '');
+  }
+  assert.equal(requests.length, 1);
+});
+
+test('missing, malformed, unavailable, and failed title responses fall back silently', async t => {
+  const original = globalThis.fetch;
+  t.after(() => { globalThis.fetch = original; });
+  for (const metadata of [null, {}, { title: null }, { title: 42 }, { title: ['wrong'] }, { title: '   ' }]) {
+    globalThis.fetch = async () => ({ ok: true, json: async () => metadata });
+    assert.equal(await fetchYouTubeTitle('M7lc1UVf-VE'), '');
+  }
+  globalThis.fetch = async () => ({ ok: false, json: async () => { throw new Error('Do not read error bodies'); } });
+  assert.equal(await fetchYouTubeTitle('M7lc1UVf-VE'), '');
+  globalThis.fetch = async () => ({ ok: true, json: async () => { throw new SyntaxError('Bad JSON'); } });
+  assert.equal(await fetchYouTubeTitle('M7lc1UVf-VE'), '');
+  globalThis.fetch = async () => { throw new Error('Offline or cancelled'); };
+  assert.equal(await fetchYouTubeTitle('M7lc1UVf-VE'), '');
 });
 
 function mockWindow(t, ready = true) {

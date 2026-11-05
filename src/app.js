@@ -1,6 +1,7 @@
-import { createYouTubePlayer, parseYouTubeURL } from './youtube.js';
+import { createYouTubePlayer, parseYouTubeURL, fetchYouTubeTitle } from './youtube.js';
 import { LoopController, validateRange } from './loop-controller.js';
 import { createSettingsStore, parseTime, formatTime, validateSnapshot, restoreForDuration } from './state.js';
+import { createHistoryStore, historyKey, segmentKey } from './history.js';
 import { setupPWA } from './pwa.js';
 
 const $ = id => document.getElementById(id);
@@ -28,6 +29,15 @@ let forgotten = false;
 let pendingRate = null;
 let initialDuration = 0;
 let changingDuration = false;
+let historyStore;
+let history = [];
+let historyRenderKey = '';
+let historyErrorShown = false;
+let practicedSegment = null;
+let suppressedSegment = null;
+let playbackActive = false;
+let videoTitle = '';
+let titleController;
 
 function status(message = '', isError = false, transient = false) {
   clearTimeout(statusTimer);
@@ -46,6 +56,91 @@ try {
   status('Saved settings could not be read. You can still practice; export settings to keep a copy.', true);
 }
 if (saved) $('video-url').value = `https://www.youtube.com/watch?v=${saved.videoId}`;
+try {
+  historyStore = createHistoryStore(localStorage, scopePath);
+  history = historyStore.read();
+  renderHistory();
+} catch { status('History could not be read. You can still practice.', true); }
+
+function renderHistory() {
+  $('history').hidden = history.length === 0;
+  // Position saves must not replace focused buttons or reset the scroll position.
+  const renderKey = JSON.stringify(history.map(entry => [segmentKey(entry), entry.title, entry.rate]));
+  if (renderKey !== historyRenderKey) {
+    const focused = document.activeElement;
+    const focusedRow = focused?.closest('#history-list li');
+    const focusedKey = focusedRow?.dataset.segmentKey;
+    const wasDelete = focused?.classList.contains('history-delete');
+    const oldIndex = [...$('history-list').children].indexOf(focusedRow);
+    const scrollTop = $('history-list').scrollTop;
+    $('history-list').replaceChildren(...history.map(entry => {
+      const row = document.createElement('li');
+      row.dataset.segmentKey = segmentKey(entry);
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'history-entry';
+      const title = document.createElement('span');
+      title.className = 'history-title';
+      title.textContent = entry.title || `YouTube · ${entry.videoId}`;
+      const range = `${formatTime(entry.a, true)}–${formatTime(entry.b, true)}`;
+      const details = document.createElement('span');
+      details.className = 'history-range';
+      details.textContent = `${range} · ${entry.rate}×`;
+      button.append(title, details);
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'history-delete';
+      remove.textContent = 'Delete';
+      remove.setAttribute('aria-label', `Delete ${title.textContent}, ${range}`);
+      row.append(button, remove);
+      return row;
+    }));
+    historyRenderKey = renderKey;
+    $('history-list').scrollTop = scrollTop;
+    if (focusedKey) {
+      const rows = [...$('history-list').children];
+      const next = rows.find(row => row.dataset.segmentKey === focusedKey) || rows[Math.min(oldIndex, rows.length - 1)];
+      (next?.querySelector(wasDelete ? '.history-delete' : '.history-entry') || $('video-url')).focus({ preventScroll:true });
+    }
+  }
+  for (const button of document.querySelectorAll('.history-entry')) button.disabled = $('load-button').disabled;
+}
+
+function notePractice(resumed = false) {
+  if (forgotten || !initialized || changingDuration) return;
+  const value = snapshot();
+  if (!validateSnapshot(value)) return;
+  const key = segmentKey(value);
+  if (key === suppressedSegment && !resumed) return;
+  if (resumed || practicedSegment?.key !== key) {
+    practicedSegment = { key, practicedAt:Date.now(), saved:false };
+    suppressedSegment = null;
+  }
+}
+
+function persistHistory(value) {
+  if (!player || !initialized || changingDuration) return true;
+  if (player.getState() === 'playing') notePractice();
+  const key = segmentKey(value);
+  if (key !== practicedSegment?.key || key === suppressedSegment) return true;
+  try {
+    if (!historyStore) historyStore = createHistoryStore(localStorage, scopePath);
+    // A deletion in another window must not be undone by an idle position save.
+    if (practicedSegment.saved && !historyStore.read().some(entry => segmentKey(entry) === key)) {
+      suppressedSegment = key;
+      return true;
+    }
+    history = historyStore.record(value, { title:videoTitle, practicedAt:practicedSegment.practicedAt });
+    practicedSegment.saved = true;
+    historyErrorShown = false;
+    renderHistory();
+    return true;
+  } catch {
+    if (!historyErrorShown) status('History could not be saved. You can still practice; try freeing browser storage.', true);
+    historyErrorShown = true;
+    return false;
+  }
+}
 
 function acceptConsent(persist = true) {
   $('consent-checkbox').checked = true;
@@ -75,7 +170,7 @@ function persist() {
     sessionStore.write(value);
     if (document.hasFocus()) store.write(value);
     storageErrorShown = false;
-    return true;
+    return persistHistory(value);
   } catch {
     if (!storageErrorShown) status('Settings could not be saved. Keep this window open or export settings from the ••• menu.', true);
     storageErrorShown = true;
@@ -146,6 +241,7 @@ function setPoints(a, b, {format = true} = {}) {
   renderRepeat();
   if (valid) {
     if (format) renderPoints();
+    if (player.getState() === 'playing') notePractice();
     scheduleSave();
   }
   return valid;
@@ -188,6 +284,7 @@ function initializeDuration() {
 
 async function loadVideo(id, restore = null) {
   const token = ++generation;
+  titleController?.abort();
   clearTimeout(rateTimer);
   clearTimeout(saveTimer);
   player?.pause();
@@ -200,11 +297,16 @@ async function loadVideo(id, restore = null) {
   duration = 0;
   initialDuration = 0;
   changingDuration = false;
+  practicedSegment = null;
+  suppressedSegment = null;
+  playbackActive = false;
+  videoTitle = restore?.title || history.find(entry => entry.videoId === id)?.title || '';
   pendingRate = null;
   videoId = id;
   pendingRestore = restore;
   $('load-button').disabled = true;
   $('load-button').textContent = 'Loading…';
+  renderHistory();
   $('workspace').hidden = false;
   $('playback-controls').hidden = true;
   $('range-error').hidden = true;
@@ -220,6 +322,11 @@ async function loadVideo(id, restore = null) {
         $('play-button').textContent = state === 'playing' || state === 'buffering' ? 'Pause' : 'Play';
         initializeDuration();
         restoreRate();
+        if (state === 'playing') {
+          notePractice(!playbackActive);
+          playbackActive = true;
+          scheduleSave();
+        } else if (['paused', 'cued', 'unstarted'].includes(state) || (state === 'ended' && !loop?.enabled)) playbackActive = false;
         if (state === 'paused' || state === 'ended') scheduleSave();
       },
       onRatesChange(rates) { if (token === generation) { renderRates(rates); restoreRate(); } },
@@ -245,13 +352,21 @@ async function loadVideo(id, restore = null) {
     $('playback-controls').hidden = false;
     renderRates();
     initializeDuration();
+    titleController = new AbortController();
+    const titleRequest = titleController;
+    const titleTimeout = setTimeout(() => titleRequest.abort(), 8000);
+    fetchYouTubeTitle(id, { signal:titleRequest.signal }).then(title => {
+      if (title && token === generation) { videoTitle = title; scheduleSave(); }
+    }).finally(() => clearTimeout(titleTimeout));
     if (!$('status').classList.contains('error')) status();
+    return true;
   } catch (error) {
     if (token === generation) status(error.message || 'YouTube could not load. Try again.', true);
   } finally {
     if (token === generation) {
       $('load-button').disabled = false;
       $('load-button').textContent = 'Load';
+      renderHistory();
     }
   }
 }
@@ -266,6 +381,48 @@ $('load-form').addEventListener('submit', event => {
   persist();
   const restore = saved?.videoId === id ? saved : null;
   loadVideo(id, restore);
+});
+
+$('history-list').addEventListener('click', async event => {
+  const button = event.target.closest('button');
+  const key = button?.closest('li')?.dataset.segmentKey;
+  const entry = history.find(value => segmentKey(value) === key);
+  if (!entry) return;
+  if (button.classList.contains('history-delete')) {
+    try {
+      history = historyStore.remove(key);
+      if (practicedSegment?.key === key) suppressedSegment = key;
+      renderHistory();
+    } catch { status('That history entry could not be deleted. Try again.', true); }
+    return;
+  }
+  if ($('load-button').disabled) return;
+  if (!navigator.onLine) { status('Connect to the internet to load YouTube. Your history is still here.', true); return; }
+  if (!$('consent-checkbox').checked) { $('consent-checkbox').reportValidity(); return; }
+  acceptConsent();
+  persist();
+  if (await loadVideo(entry.videoId, { ...entry, position:entry.a })) $('play-button').focus();
+});
+
+$('clear-history').addEventListener('click', () => {
+  try {
+    historyStore.clear();
+    const current = snapshot();
+    suppressedSegment = current ? segmentKey(current) : practicedSegment?.key || null;
+    history = [];
+    renderHistory();
+    $('video-url').focus();
+    status('History cleared.', false, true);
+  } catch { status('History could not be cleared. Try again.', true); }
+});
+
+window.addEventListener('storage', event => {
+  if (event.key !== historyKey(scopePath) && event.key !== null) return;
+  try {
+    history = historyStore.read();
+    if (practicedSegment && (practicedSegment.saved || event.newValue === null) && !history.some(entry => segmentKey(entry) === practicedSegment.key)) suppressedSegment = practicedSegment.key;
+    renderHistory();
+  } catch { status('History could not be read. You can still practice.', true); }
 });
 
 $('play-button').addEventListener('click', () => {
@@ -363,10 +520,13 @@ $('import-settings').addEventListener('change', async event => {
     if (file.size > 10000) throw new Error('Choose a Practice looper settings file smaller than 10 KB.');
     const imported = validateSnapshot(JSON.parse(await file.text()));
     if (!imported) throw new Error('This is not a valid Practice looper settings file.');
+    persist();
     ++generation;
     clearTimeout(saveTimer);
     player?.pause(); loop?.destroy(); player?.destroy();
     player = null; loop = null; initialized = false; videoId = null;
+    practicedSegment = null;
+    titleController?.abort();
     forgotten = false;
     saved = imported;
     $('workspace').hidden = true;
@@ -383,13 +543,18 @@ $('forget-settings').addEventListener('click', () => {
     localStorage.removeItem(settingsKey);
     sessionStorage.removeItem(settingsKey);
     localStorage.removeItem(consentKey);
+    if (!historyStore) historyStore = createHistoryStore(localStorage, scopePath);
+    historyStore.clear();
+    history = [];
+    practicedSegment = null;
+    renderHistory();
     saved = null;
     forgotten = true;
     $('consent-checkbox').checked = false;
     $('consent-checkbox').required = true;
     $('youtube-consent').hidden = false;
     $('about-dialog').close();
-    status('Saved settings removed. The current session will not be saved until you load a video again.', false, true);
+    status('Saved settings and history removed. The current session will not be saved until you load a video again.', false, true);
   } catch { $('about-dialog').close(); status('Settings could not be removed. Try again in your browser’s site settings.', true); }
 });
 
