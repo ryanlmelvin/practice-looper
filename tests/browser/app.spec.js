@@ -37,6 +37,7 @@ test('rejects unrelated links and recovers from an unavailable embed', async ({ 
   await expect(page.locator('#workspace')).toBeHidden();
   await loadVideo(page, 'blocked0001');
   await expect(page.locator('#status')).toContainText('owner does not allow');
+  await expect(page.locator('#blocker-help')).toBeHidden();
   await expect(page.locator('#load-button')).toBeEnabled();
   await loadVideo(page);
   await expect(page.locator('#status')).toBeHidden();
@@ -169,7 +170,12 @@ test('explains a blocked YouTube script, clears the empty player, and retries', 
   await page.locator('#video-url').fill('https://www.youtube.com/watch?v=rn_YodiJO6k&ra=m');
   await page.locator('#load-button').click();
   await expect(page.locator('#status')).toContainText('player script');
-  await expect(page.locator('#status')).toContainText('content blockers');
+  await expect(page.locator('#status')).toContainText('content blocker');
+  await expect(page.locator('#blocker-help')).toBeVisible();
+  await page.locator('#blocker-help summary').click();
+  for (const browser of ['Safari on iPhone/iPad', 'Safari on Mac', 'Chrome / Edge', 'Firefox', 'Installed app:']) {
+    await expect(page.locator('#blocker-help')).toContainText(browser);
+  }
   await expect(page.locator('#workspace')).toBeHidden();
   await expect(page.locator('#player-container')).toBeEmpty();
   await expect(page.locator('#load-button')).toBeEnabled();
@@ -178,6 +184,8 @@ test('explains a blocked YouTube script, clears the empty player, and retries', 
   await page.locator('#load-button').click();
   await expect(page.locator('#playback-controls')).toBeVisible();
   expect(await page.evaluate(() => window.__fakeYT.videoId)).toBe('rn_YodiJO6k');
+  await expect(page.locator('#blocker-help')).toBeHidden();
+  expect(await page.locator('#blocker-help').evaluate(node => node.open)).toBe(false);
 });
 
 test('distinguishes a player API timeout from a blocked script', async ({ page }) => {
@@ -187,6 +195,19 @@ test('distinguishes a player API timeout from a blocked script', async ({ page }
   await page.locator('#load-button').click();
   await page.clock.fastForward(30001);
   await expect(page.locator('#status')).toContainText('took too long');
+  await expect(page.locator('#blocker-help')).toBeVisible();
   await expect(page.locator('#workspace')).toBeHidden();
   await expect(page.locator('#load-button')).toBeEnabled();
+});
+
+
+test('offers blocker instructions after player identity errors on a mobile screen', async ({ page }) => {
+  await page.setViewportSize({ width:390, height:844 });
+  await loadVideo(page);
+  await page.evaluate(() => window.__fakeYT.options.events.onError({ data:153 }));
+  await expect(page.locator('#status')).toContainText('content blocker');
+  await page.locator('#blocker-help summary').click();
+  await expect(page.locator('#blocker-help')).toContainText('Browser settings may not carry over');
+  await expect(page.locator('#blocker-help a').first()).toHaveAttribute('href', 'https://ryanlmelvin.github.io/practice-looper/');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

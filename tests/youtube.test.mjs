@@ -157,3 +157,17 @@ test('rejects a failed embed before readiness and releases the player', async t 
   assert.equal(errors.length, 1);
   assert.deepEqual(mock.calls, [['destroy']]);
 });
+
+test('offers blocker help for playback and identity failures, not unavailable videos', async t => {
+  const mock = mockWindow(t);
+  const errors = [];
+  const adapter = await createYouTubePlayer({ element:{}, videoId:'rn_YodiJO6k', onError:(message, help) => errors.push({ message, help }) });
+  t.after(() => adapter.destroy());
+  for (const code of [5, 153, 999, 2, 100, 101, 150]) {
+    mock.instance.options.events.onError({ data:code });
+    const error = errors.at(-1);
+    const expected = [5, 153, 999].includes(code);
+    assert.equal(error.help, expected);
+    assert.equal(error.message.includes('content blocker'), expected);
+  }
+});

@@ -54,6 +54,11 @@ const ERRORS = {
   153: 'YouTube could not identify this app. Open its normal website address and try again; a referrer-blocking browser setting may also prevent playback.',
 };
 
+const BLOCKER_HINT = ' A content blocker may be blocking YouTube. Try allowing this site in your blocker, then reload and try Load again.';
+function loadingError(message) {
+  return Object.assign(new Error(message + BLOCKER_HINT), { blockerHelp: true });
+}
+
 let apiPromise;
 
 function loadAPI() {
@@ -74,9 +79,9 @@ function loadAPI() {
       settled = true;
       cleanup();
       script.remove();
-      reject(new Error(timedOut
-        ? 'YouTube took too long to load. Try Load again. If it keeps failing in Safari, reload this page and try another network.'
-        : 'The browser could not load YouTube’s player script. Try Load again. In Safari, try turning off content blockers for this website, then reload. If it still fails, try another network.'));
+      reject(loadingError(timedOut
+        ? 'YouTube took too long to load.'
+        : 'The browser could not load YouTube’s player script.'));
     }
     function ready() {
       if (settled) return;
@@ -119,7 +124,7 @@ export async function createYouTubePlayer({
     const timeout = setTimeout(() => {
       if (ready || destroyed) return;
       adapter.destroy();
-      reject(new Error('The YouTube player did not respond. Check your connection and try Load again.'));
+      reject(loadingError('The YouTube player did not respond.'));
     }, 20000);
     const read = (method, fallback) => {
       if (destroyed || !player || typeof player[method] !== 'function') return fallback;
@@ -209,11 +214,12 @@ export async function createYouTubePlayer({
           onApiChange() { if (!destroyed) reportRates(); },
           onError(event) {
             if (destroyed) return;
-            const message = ERRORS[event.data] || 'YouTube could not play this video. Try loading it again or use another link.';
-            onError(message);
+            const blockerHelp = !ERRORS[event.data] || [5, 153].includes(event.data);
+            const message = (ERRORS[event.data] || 'YouTube could not play this video.') + (blockerHelp ? BLOCKER_HINT : '');
+            onError(message, blockerHelp);
             if (!ready) {
               adapter.destroy();
-              reject(new Error(message));
+              reject(Object.assign(new Error(message), { blockerHelp }));
             }
           },
           onAutoplayBlocked() {

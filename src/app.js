@@ -40,8 +40,10 @@ let playbackActive = false;
 let videoTitle = '';
 let titleController;
 
-function status(message = '', isError = false, transient = false) {
+function status(message = '', isError = false, transient = false, blockerHelp = false) {
   clearTimeout(statusTimer);
+  $('blocker-help').hidden = !blockerHelp;
+  if (!blockerHelp) $('blocker-help').open = false;
   $('status').textContent = message;
   $('status').hidden = !message;
   $('status').classList.toggle('error', isError);
@@ -338,11 +340,11 @@ async function loadVideo(id, restore = null) {
         $('speed').value = String(rate);
         scheduleSave();
       },
-      onError(message) {
+      onError(message, blockerHelp = false) {
         if (token !== generation) return;
         loop?.setEnabled(false);
         renderRepeat();
-        status(message, true);
+        status(message, true, false, blockerHelp);
       }
     });
     if (token !== generation) { nextPlayer.destroy(); return; }
@@ -367,7 +369,7 @@ async function loadVideo(id, restore = null) {
     if (token === generation) {
       $('workspace').hidden = true;
       $('player-container').replaceChildren();
-      status(error.message || 'YouTube could not load. Try again.', true);
+      status(error.message || 'YouTube could not load. Try again.', true, false, error.blockerHelp === true);
     }
   } finally {
     if (token === generation) {
