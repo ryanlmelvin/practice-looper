@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
   <title>Riffbolt</title>
-  <rect width="256" height="256" rx="52" fill="#ff5934"/>
-  <path transform="translate(62 48) scale(.3)" fill="#111315" fill-rule="evenodd" d="M48 8H376L434 78L403 170L272 252L370 292L47 524L217 308L139 314L205 227L113 237L69 377L1 395L102 76ZM191 81L168 169L314 142L337 81Z"/>
+  <rect width="256" height="256" fill="#17191b"/>
+  <path transform="translate(58 44) scale(.32)" fill="#ff6846" fill-rule="evenodd" d="M48 8H376L434 78L403 170L272 252L370 292L47 524L217 308L139 314L205 227L113 237L69 377L1 395L102 76ZM191 81L168 169L314 142L337 81Z"/>
 </svg>
