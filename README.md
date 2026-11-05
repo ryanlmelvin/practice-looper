@@ -6,7 +6,7 @@ Loop it. Nail it.
 
 A small, installable YouTube A–B practice tool. Paste a video link, load it, set A and B, turn on Repeat, and choose a speed supported by the video. Edit times as minutes:seconds or seconds. The official YouTube player stays visible with its own controls.
 
-By [Ryan L. Melvin](https://ryanlmelvin.com).
+By [Ryan L. Melvin](https://ryanlmelvin.com). Licensed under the [MIT License](LICENSE).
 
 ## What ships
 

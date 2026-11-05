@@ -12,13 +12,14 @@ async function filesAt(dir) {
   }
   return result.sort();
 }
-const inputs = [...await filesAt('src'), ...await filesAt('public'), 'scripts/sw-template.js', 'scripts/build.mjs', 'package-lock.json'].sort();
+const inputs = [...await filesAt('src'), ...await filesAt('public'), 'scripts/sw-template.js', 'scripts/build.mjs', 'package-lock.json', 'LICENSE'].sort();
 const hash = createHash('sha256');
 for (const input of inputs) { hash.update(input); hash.update(await readFile(input)); }
 const version = hash.digest('hex').slice(0,12);
 await rm('docs', { recursive:true, force:true });
 await mkdir('docs/assets', {recursive:true});
 await cp('public', 'docs', {recursive:true});
+await cp('LICENSE', 'docs/LICENSE.txt');
 const output = await build({entryPoints:['src/app.js'],bundle:true,format:'esm',target:['safari16.4','chrome110'],minify:true,entryNames:'app-[hash]',outdir:'docs/assets',metafile:true,legalComments:'eof'});
 const appFile = Object.keys(output.metafile.outputs).find(file=>file.endsWith('.js')).replace('docs/','./');
 const css = await readFile('public/styles.css');
