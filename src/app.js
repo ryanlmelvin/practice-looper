@@ -149,7 +149,6 @@ function persistHistory(value) {
 }
 
 function acceptConsent(persist = true) {
-  $('youtube-consent').hidden = true;
   if (persist) {
     try { localStorage.setItem(consentKey, 'yes'); } catch { /* Consent remains valid for this session. */ }
   }

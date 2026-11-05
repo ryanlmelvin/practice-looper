@@ -20,6 +20,7 @@ test('contacts YouTube only after Load, then cues silently', async ({ page }) =>
   expect(requests).toEqual([]);
   await page.locator('#load-button').click();
   await expect(page.locator('#playback-controls')).toBeVisible();
+  await expect(page.locator('#youtube-consent')).toBeVisible();
   expect(requests.filter(url => new URL(url).pathname === '/iframe_api')).toHaveLength(1);
   await expect.poll(() => requests.filter(url => new URL(url).pathname === '/oembed').length).toBe(1);
   await expect.poll(() => page.evaluate(() => window.__fakeYT.state)).toBe(5);
@@ -110,7 +111,7 @@ test('restores points, accepted speed, repeat, and position after reload without
   await page.reload();
   await expect(page.locator('#workspace')).toBeHidden();
   await expect(page.locator('#video-url')).toHaveValue(`https://www.youtube.com/watch?v=${VIDEO_ID}`);
-  await expect(page.locator('#youtube-consent')).toBeHidden();
+  await expect(page.locator('#youtube-consent')).toBeVisible();
   await page.locator('#load-button').click();
   await expect(page.locator('#playback-controls')).toBeVisible();
   await expect(page.locator('#point-a')).toHaveValue('0:10.0');
