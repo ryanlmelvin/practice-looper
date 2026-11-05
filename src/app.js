@@ -53,7 +53,7 @@ try {
   saved = sessionStore.read() || store.read();
   if (localStorage.getItem(consentKey) === 'yes') acceptConsent(false);
 } catch {
-  status('Saved settings could not be read. You can still practice; export settings to keep a copy.', true);
+  status('The saved loop could not be read. You can still practice; export the current loop to keep a copy.', true);
 }
 if (saved) $('video-url').value = `https://www.youtube.com/watch?v=${saved.videoId}`;
 try {
@@ -172,7 +172,7 @@ function persist() {
     storageErrorShown = false;
     return persistHistory(value);
   } catch {
-    if (!storageErrorShown) status('Settings could not be saved. Keep this window open or export settings from the ••• menu.', true);
+    if (!storageErrorShown) status('The current loop could not be saved. Keep this window open or export the current loop from the ••• menu.', true);
     storageErrorShown = true;
     return false;
   }
@@ -375,7 +375,7 @@ $('load-form').addEventListener('submit', event => {
   event.preventDefault();
   const id = parseYouTubeURL($('video-url').value);
   if (!id) { status('Enter a YouTube video link, such as youtube.com/watch?v=… or youtu.be/….', true); $('video-url').focus(); return; }
-  if (!navigator.onLine) { status('Connect to the internet to load YouTube. Your saved settings are still here.', true); return; }
+  if (!navigator.onLine) { status('Connect to the internet to load YouTube. Your saved loop is still here.', true); return; }
   if (!$('consent-checkbox').checked) { $('consent-checkbox').reportValidity(); return; }
   acceptConsent();
   persist();
@@ -494,7 +494,7 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('pagehide', () => { player?.pause(); persist(); });
 window.addEventListener('offline', () => status('You’re offline. YouTube playback needs an internet connection.', true));
 window.addEventListener('online', () => { if ($('status').textContent.includes('offline')) status('Back online. Load the video again if playback stopped.', false, true); });
-if (!navigator.onLine) status('You’re offline. Connect to load YouTube; saved settings are available.', true);
+if (!navigator.onLine) status('You’re offline. Connect to load YouTube; your saved loop is available.', true);
 
 $('about-button').addEventListener('click', () => $('about-dialog').showModal());
 let aboutOpener = $('about-button');
@@ -507,9 +507,9 @@ $('privacy-button').addEventListener('click', () => {
 $('about-dialog').addEventListener('close', () => aboutOpener.focus());
 $('export-settings').addEventListener('click', () => {
   const value = snapshot();
-  if (!value) { $('about-dialog').close(); status('Set a valid A–B passage before exporting settings.', true); return; }
+  if (!value) { $('about-dialog').close(); status('Set a valid A–B passage before exporting a loop.', true); return; }
   const url = URL.createObjectURL(new Blob([JSON.stringify(value,null,2)], {type:'application/json'}));
-  const link = document.createElement('a'); link.href = url; link.download = 'riffbolt-settings.json'; link.click();
+  const link = document.createElement('a'); link.href = url; link.download = 'riffbolt-loop.json'; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 });
 $('import-settings').addEventListener('change', async event => {
@@ -517,9 +517,9 @@ $('import-settings').addEventListener('change', async event => {
   event.target.value = '';
   if (!file) return;
   try {
-    if (file.size > 10000) throw new Error('Choose a Riffbolt settings file smaller than 10 KB.');
+    if (file.size > 10000) throw new Error('Choose a Riffbolt loop file smaller than 10 KB.');
     const imported = validateSnapshot(JSON.parse(await file.text()));
-    if (!imported) throw new Error('This is not a valid Riffbolt settings file.');
+    if (!imported) throw new Error('This is not a valid Riffbolt loop file.');
     persist();
     ++generation;
     clearTimeout(saveTimer);
@@ -535,8 +535,8 @@ $('import-settings').addEventListener('change', async event => {
     $('video-url').value = `https://www.youtube.com/watch?v=${imported.videoId}`;
     const kept = persist();
     $('about-dialog').close();
-    if (kept) status('Settings imported. Load the video to restore the passage.', false, true);
-  } catch (error) { $('about-dialog').close(); status(error.message || 'That settings file could not be read.', true); }
+    if (kept) status('Loop imported. Load the video to restore the passage.', false, true);
+  } catch (error) { $('about-dialog').close(); status(error.message || 'That loop file could not be read.', true); }
 });
 $('forget-settings').addEventListener('click', () => {
   try {
@@ -554,8 +554,8 @@ $('forget-settings').addEventListener('click', () => {
     $('consent-checkbox').required = true;
     $('youtube-consent').hidden = false;
     $('about-dialog').close();
-    status('Saved settings and history removed. The current session will not be saved until you load a video again.', false, true);
-  } catch { $('about-dialog').close(); status('Settings could not be removed. Try again in your browser’s site settings.', true); }
+    status('Saved loop, practice history, and YouTube consent removed. The current session will not be saved until you load a video again.', false, true);
+  } catch { $('about-dialog').close(); status('Saved browser data could not be removed. Try again in your browser’s site settings.', true); }
 });
 
 setupPWA({
@@ -570,7 +570,7 @@ setupPWA({
     const success = persist();
     if (!success) {
       for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close();
-      status('Update paused because settings could not be saved. Export them from the ••• menu, then retry when storage is available.', true);
+      status('Update paused because the current loop could not be saved. Export it from the ••• menu, then retry when storage is available.', true);
     }
     return success;
   },

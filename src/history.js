@@ -36,10 +36,10 @@ export function createHistoryStore(storage, path) {
     if (raw === null) return [];
     let parsed;
     try { parsed = JSON.parse(raw); } catch {
-      throw new Error('Saved practice history is invalid. Forget saved settings to clear it.');
+      throw new Error('Saved practice history is invalid. Use Clear saved browser data to clear it.');
     }
     if (!Array.isArray(parsed)) {
-      throw new Error('Saved practice history is invalid. Forget saved settings to clear it.');
+      throw new Error('Saved practice history is invalid. Use Clear saved browser data to clear it.');
     }
     return recentEntries(parsed.map(validateEntry).filter(Boolean));
   }
